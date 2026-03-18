@@ -575,12 +575,12 @@ const StaffDash = ({ orders, setOrders, menu, setMenu, inventory, setInventory, 
   const setStatus = (id, s) => {
     setOrders(p => p.map(o => o.id === id ? { ...o, status: s } : o));
     const order = orders.find(o => o.id === id);
-    if (order) supabase.from('orders').update({ data: { ...order, status: s } }).eq('id', id);
+    if (order) supabase.from('orders').update({ data: { ...order, status: s } }).eq('id', id).catch(console.error);
   };
   const deleteOrder = (id) => {
     if (managerUnlocked || isAdmin) {
       setOrders(p => p.filter(o => o.id !== id));
-      supabase.from('orders').delete().eq('id', id);
+      supabase.from('orders').delete().eq('id', id).catch(console.error);
     }
   };
 
@@ -776,7 +776,7 @@ const BillingPanel = ({ orders, setOrders, ledger, setLedger, cashRegister, setC
     if (remaining > 0) return;
     setOrders(p => p.map(o => o.id === selOrder ? { ...o, status: "paid", payments: [...payments] } : o));
     const orderObj = orders.find(o => o.id === selOrder);
-    if (orderObj) supabase.from('orders').update({ data: { ...orderObj, status: "paid", payments: [...payments] } }).eq('id', selOrder);
+    if (orderObj) supabase.from('orders').update({ data: { ...orderObj, status: "paid", payments: [...payments] } }).eq('id', selOrder).catch(console.error);
     setLedger(p => [...p, { id: `le-${uid()}`, date: new Date().toISOString().split("T")[0], type: "revenue", cat: "Sales", desc: `Order ${selOrder} — Table ${order.table}`, amount: order.total }]);
     // Track CDF and USD cash separately
     const cdfCash = payments.filter(p => p.methodId === "cdf_cash").reduce((s, p) => s + p.amount, 0);
@@ -1610,7 +1610,7 @@ export default function KaribuCafe() {
 
   const handleOrder = (order) => {
     setOrders(p => [...p, order]);
-    supabase.from('orders').insert({ id: order.id, data: order });
+    supabase.from('orders').insert({ id: order.id, data: order }).catch(console.error);
     order.items.forEach(item => {
       const recipe = recipes[item.id];
       if (recipe) recipe.forEach(ing => setInventory(p => p.map(inv => inv.id === ing.inv ? { ...inv, stock: Math.max(0, Math.round((inv.stock - ing.qty * item.qty) * 100) / 100) } : inv)));
