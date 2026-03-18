@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase } from './supabaseClient';
 
 // ============================================================
 // KARIBU CAFÉ — Complete Management System
@@ -574,13 +574,14 @@ const StaffDash = ({ orders, setOrders, menu, setMenu, inventory, setInventory, 
 
   const setStatus = (id, s) => {
     setOrders(p => p.map(o => o.id === id ? { ...o, status: s } : o));
-    const order = orders.find(o => o.id === id);
-    if (order) supabase.from('orders').update({ data: { ...order, status: s } }).eq('id', id).catch(console.error);
+    supabase.from('orders').update({ status: s, updated_at: new Date().toISOString() }).eq('order_number', id)
+      .then(({ error }) => { if (error) console.error('Status update failed:', error); });
   };
   const deleteOrder = (id) => {
     if (managerUnlocked || isAdmin) {
       setOrders(p => p.filter(o => o.id !== id));
-      supabase.from('orders').delete().eq('id', id).catch(console.error);
+      supabase.from('orders').delete().eq('order_number', id)
+        .then(({ error }) => { if (error) console.error('Delete failed:', error); });
     }
   };
 
@@ -775,10 +776,19 @@ const BillingPanel = ({ orders, setOrders, ledger, setLedger, cashRegister, setC
   const closeCheck = () => {
     if (remaining > 0) return;
     setOrders(p => p.map(o => o.id === selOrder ? { ...o, status: "paid", payments: [...payments] } : o));
+    // Update Supabase
+    supabase.from('orders').update({ status: 'paid', updated_at: new Date().toISOString() }).eq('order_number', selOrder)
+      .then(({ error }) => { if (error) console.error('Close check failed:', error); });
+    // Insert payments into Supabase
     const orderObj = orders.find(o => o.id === selOrder);
-    if (orderObj) supabase.from('orders').update({ data: { ...orderObj, status: "paid", payments: [...payments] } }).eq('id', selOrder).catch(console.error);
+    if (orderObj?.dbId) {
+      supabase.from('payments').insert(payments.map(p => ({ order_id: orderObj.dbId, method: p.methodId, method_label: p.method, amount: p.amount, currency: 'CDF' })))
+        .then(({ error }) => { if (error) console.error('Payment insert failed:', error); });
+    }
+    // Ledger entry in Supabase
+    supabase.from('ledger').insert({ date: new Date().toISOString().split('T')[0], type: 'revenue', category: 'Sales', description: `Order ${selOrder} — Table ${order.table}`, amount: order.total, reference: selOrder })
+      .then(({ error }) => { if (error) console.error('Ledger insert failed:', error); });
     setLedger(p => [...p, { id: `le-${uid()}`, date: new Date().toISOString().split("T")[0], type: "revenue", cat: "Sales", desc: `Order ${selOrder} — Table ${order.table}`, amount: order.total }]);
-    // Track CDF and USD cash separately
     const cdfCash = payments.filter(p => p.methodId === "cdf_cash").reduce((s, p) => s + p.amount, 0);
     const usdCash = payments.filter(p => p.methodId === "usd_cash").reduce((s, p) => s + p.amount, 0);
     setCashRegister(p => ({ ...p, cdf: { ...p.cdf, sales: p.cdf.sales + cdfCash }, usd: { ...p.usd, sales: p.usd.sales + usdCash } }));
@@ -1571,27 +1581,57 @@ export default function KaribuCafe() {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    supabase.from('orders').select('*').then(({data}) => {
-      if (data) setOrders(data.map(d => d.data));
-    });
-
-    const sub = supabase.channel('orders_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-        if (payload.eventType === 'INSERT') {
-          setOrders(p => {
-            const exists = p.find(o => o.id === payload.new.id);
-            return exists ? p : [...p, payload.new.data];
-          });
-        } else if (payload.eventType === 'UPDATE') {
-          setOrders(p => p.map(o => o.id === payload.new.id ? payload.new.data : o));
-        } else if (payload.eventType === 'DELETE') {
-          setOrders(p => p.filter(o => o.id !== payload.old.id));
+    // Load existing orders from Supabase
+    supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) { console.error('Load orders failed:', error); return; }
+        if (data) {
+          setOrders(data.map(o => ({
+            id: o.order_number,
+            dbId: o.id,
+            table: o.table_number,
+            guest: o.customer_name ? { name: o.customer_name, phone: o.customer_phone, guests: o.guest_count } : null,
+            items: (o.order_items || []).map(i => ({ id: i.menu_item_id || i.id, name: i.name, price: i.price, qty: i.quantity })),
+            total: o.total,
+            status: o.status,
+            time: o.created_at,
+            payments: [],
+          })));
         }
-      }).subscribe();
+      });
+
+    // Real-time: listen for changes
+    const sub = supabase.channel('orders_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        // Fetch full order with items
+        supabase.from('orders').select('*, order_items(*)').eq('id', payload.new.id).single()
+          .then(({ data }) => {
+            if (data) {
+              setOrders(p => {
+                if (p.find(o => o.dbId === data.id)) return p;
+                return [...p, {
+                  id: data.order_number, dbId: data.id, table: data.table_number,
+                  guest: data.customer_name ? { name: data.customer_name, phone: data.customer_phone, guests: data.guest_count } : null,
+                  items: (data.order_items || []).map(i => ({ id: i.menu_item_id || i.id, name: i.name, price: i.price, qty: i.quantity })),
+                  total: data.total, status: data.status, time: data.created_at, payments: [],
+                }];
+              });
+            }
+          });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        setOrders(p => p.map(o => o.dbId === payload.new.id ? { ...o, status: payload.new.status } : o));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, (payload) => {
+        setOrders(p => p.filter(o => o.dbId !== payload.old.id));
+      })
+      .subscribe();
 
     return () => supabase.removeChannel(sub);
   }, []);
-
   const [menu, setMenu] = useState(DEFAULT_MENU);
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
   const [suppliers, setSuppliers] = useState(DEFAULT_SUPPLIERS);
@@ -1609,8 +1649,44 @@ export default function KaribuCafe() {
   const [loyaltyActive] = useState(false);
 
   const handleOrder = (order) => {
+    // Add to local state immediately
     setOrders(p => [...p, order]);
-    supabase.from('orders').insert({ id: order.id, data: order }).catch(console.error);
+
+    // Insert into Supabase with correct column names
+    supabase
+      .from('orders')
+      .insert({
+        order_number: order.id,
+        table_number: order.table,
+        customer_name: order.guest?.name || null,
+        customer_phone: order.guest?.phone || null,
+        guest_count: order.guest?.guests || 1,
+        subtotal: order.total,
+        discount: 0,
+        total: order.total,
+        status: 'new',
+      })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) { console.error('Order insert failed:', error); return; }
+        if (data) {
+          // Store the DB id on the local order
+          setOrders(p => p.map(o => o.id === order.id ? { ...o, dbId: data.id } : o));
+          // Insert order items
+          supabase.from('order_items').insert(
+            order.items.map(item => ({ order_id: data.id, name: item.name, price: item.price, quantity: item.qty }))
+          ).then(({ error: e }) => { if (e) console.error('Items insert failed:', e); });
+        }
+      });
+
+    // Save customer for order history
+    if (order.guest?.phone) {
+      supabase.from('customers').upsert({ phone: order.guest.phone, name: order.guest.name }, { onConflict: 'phone' })
+        .then(({ error }) => { if (error) console.error('Customer save failed:', error); });
+    }
+
+    // Deduct inventory locally
     order.items.forEach(item => {
       const recipe = recipes[item.id];
       if (recipe) recipe.forEach(ing => setInventory(p => p.map(inv => inv.id === ing.inv ? { ...inv, stock: Math.max(0, Math.round((inv.stock - ing.qty * item.qty) * 100) / 100) } : inv)));
