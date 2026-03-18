@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { supabase } from "./supabaseClient";
 
 // ============================================================
 // KARIBU CAFÉ — Complete Management System
@@ -571,9 +572,16 @@ const StaffDash = ({ orders, setOrders, menu, setMenu, inventory, setInventory, 
   ];
   const tabList = [...staffTabs, ...managerTabs];
 
-  const setStatus = (id, s) => setOrders(p => p.map(o => o.id === id ? { ...o, status: s } : o));
+  const setStatus = (id, s) => {
+    setOrders(p => p.map(o => o.id === id ? { ...o, status: s } : o));
+    const order = orders.find(o => o.id === id);
+    if (order) supabase.from('orders').update({ data: { ...order, status: s } }).eq('id', id);
+  };
   const deleteOrder = (id) => {
-    if (managerUnlocked || isAdmin) setOrders(p => p.filter(o => o.id !== id));
+    if (managerUnlocked || isAdmin) {
+      setOrders(p => p.filter(o => o.id !== id));
+      supabase.from('orders').delete().eq('id', id);
+    }
   };
 
   const statusStyle = { new: { bg: C.warnLt, color: C.warn, label: "New" }, preparing: { bg: C.blueLt, color: C.blue, label: "Preparing" }, ready: { bg: C.okLt, color: C.ok, label: "Ready" }, served: { bg: C.sandLt, color: C.stone, label: "Served" }, paid: { bg: "#F0EBFF", color: "#7C3AED", label: "Paid" } };
@@ -767,6 +775,8 @@ const BillingPanel = ({ orders, setOrders, ledger, setLedger, cashRegister, setC
   const closeCheck = () => {
     if (remaining > 0) return;
     setOrders(p => p.map(o => o.id === selOrder ? { ...o, status: "paid", payments: [...payments] } : o));
+    const orderObj = orders.find(o => o.id === selOrder);
+    if (orderObj) supabase.from('orders').update({ data: { ...orderObj, status: "paid", payments: [...payments] } }).eq('id', selOrder);
     setLedger(p => [...p, { id: `le-${uid()}`, date: new Date().toISOString().split("T")[0], type: "revenue", cat: "Sales", desc: `Order ${selOrder} — Table ${order.table}`, amount: order.total }]);
     // Track CDF and USD cash separately
     const cdfCash = payments.filter(p => p.methodId === "cdf_cash").reduce((s, p) => s + p.amount, 0);
@@ -1559,6 +1569,29 @@ export default function KaribuCafe() {
     try { return parseInt(new URLSearchParams(window.location.search).get("table")) || 1; } catch (e) { return 1; }
   });
   const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    supabase.from('orders').select('*').then(({data}) => {
+      if (data) setOrders(data.map(d => d.data));
+    });
+
+    const sub = supabase.channel('orders_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+        if (payload.eventType === 'INSERT') {
+          setOrders(p => {
+            const exists = p.find(o => o.id === payload.new.id);
+            return exists ? p : [...p, payload.new.data];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setOrders(p => p.map(o => o.id === payload.new.id ? payload.new.data : o));
+        } else if (payload.eventType === 'DELETE') {
+          setOrders(p => p.filter(o => o.id !== payload.old.id));
+        }
+      }).subscribe();
+
+    return () => supabase.removeChannel(sub);
+  }, []);
+
   const [menu, setMenu] = useState(DEFAULT_MENU);
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
   const [suppliers, setSuppliers] = useState(DEFAULT_SUPPLIERS);
@@ -1577,6 +1610,7 @@ export default function KaribuCafe() {
 
   const handleOrder = (order) => {
     setOrders(p => [...p, order]);
+    supabase.from('orders').insert({ id: order.id, data: order });
     order.items.forEach(item => {
       const recipe = recipes[item.id];
       if (recipe) recipe.forEach(ing => setInventory(p => p.map(inv => inv.id === ing.inv ? { ...inv, stock: Math.max(0, Math.round((inv.stock - ing.qty * item.qty) * 100) / 100) } : inv)));
