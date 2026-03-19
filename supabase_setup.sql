@@ -3,7 +3,7 @@
 -- Run this ENTIRE script in Supabase SQL Editor
 -- ============================================================
 
--- ─── DROP OLD TABLE IF EXISTS (from previous schema) ───
+-- ─── DROP OLD TABLES (clean slate) ───
 DROP TABLE IF EXISTS public.payments CASCADE;
 DROP TABLE IF EXISTS public.order_items CASCADE;
 DROP TABLE IF EXISTS public.ledger CASCADE;
@@ -80,22 +80,35 @@ CREATE TABLE public.customers (
 );
 
 -- ============================================================
--- DISABLE ROW LEVEL SECURITY (for prototype / development)
+-- ROW LEVEL SECURITY — Enable RLS but allow ALL operations
+-- (Supabase requires RLS to be enabled; we add open policies)
 -- ============================================================
-ALTER TABLE public.orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.order_items DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ledger DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.customers DISABLE ROW LEVEL SECURITY;
+
+-- ORDERS
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
+
+-- ORDER ITEMS
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on order_items" ON public.order_items FOR ALL USING (true) WITH CHECK (true);
+
+-- PAYMENTS
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on payments" ON public.payments FOR ALL USING (true) WITH CHECK (true);
+
+-- LEDGER
+ALTER TABLE public.ledger ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on ledger" ON public.ledger FOR ALL USING (true) WITH CHECK (true);
+
+-- CUSTOMERS
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on customers" ON public.customers FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- ENABLE REALTIME for orders table
 -- ============================================================
-BEGIN;
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime;
-COMMIT;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+DROP PUBLICATION IF EXISTS supabase_realtime;
+CREATE PUBLICATION supabase_realtime FOR TABLE public.orders;
 
 -- ============================================================
 -- INDEXES for performance
@@ -109,5 +122,5 @@ CREATE INDEX idx_customers_phone ON public.customers(phone);
 CREATE INDEX idx_ledger_date ON public.ledger(date DESC);
 
 -- ============================================================
--- DONE! All tables created. Your app should now work.
+-- DONE! All tables created with open RLS policies.
 -- ============================================================
