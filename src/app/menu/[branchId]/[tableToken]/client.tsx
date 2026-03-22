@@ -1,12 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Coffee, Search, Clock, X, ChevronDown } from 'lucide-react';
+import { Coffee, Search, Clock, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MenuCategory, MenuItem } from '@/types';
 
-function formatCurrency(amount: number, currency = 'KES') {
-  return new Intl.NumberFormat('en-KE', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
+const CDF_PER_USD = 2800;
+
+function formatPrice(amount: number, currency: string) {
+  if (currency === 'USD') {
+    const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
+    const cdf = new Intl.NumberFormat('fr-CD', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(amount * CDF_PER_USD));
+    return { primary: usd, secondary: `FC ${cdf}` };
+  }
+  const val = new Intl.NumberFormat('en-KE', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
+  return { primary: val, secondary: null };
 }
 
 const t = {
@@ -223,9 +231,14 @@ export function QRMenuClient({ branch, table, categories, items }: Props) {
                 <p className="text-stone-500 dark:text-stone-400 text-sm leading-relaxed mb-4">{selectedItem.description}</p>
               )}
               <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                  {formatCurrency(Number(selectedItem.base_price), branch.currency)}
-                </p>
+                <div>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {formatPrice(Number(selectedItem.base_price), branch.currency).primary}
+                  </p>
+                  {formatPrice(Number(selectedItem.base_price), branch.currency).secondary && (
+                    <p className="text-xs text-stone-400 mt-0.5">{formatPrice(Number(selectedItem.base_price), branch.currency).secondary}</p>
+                  )}
+                </div>
                 {selectedItem.prep_time_minutes && (
                   <div className="flex items-center gap-1.5 text-sm text-stone-400">
                     <Clock className="h-4 w-4" />
@@ -258,8 +271,11 @@ function ItemCard({ item, currency, onClick }: { item: MenuItem; currency: strin
           <p className="text-xs text-stone-400 mt-0.5 line-clamp-2 leading-relaxed">{item.description}</p>
         )}
         <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-2">
-          {formatCurrency(Number(item.base_price), currency)}
+          {formatPrice(Number(item.base_price), currency).primary}
         </p>
+        {formatPrice(Number(item.base_price), currency).secondary && (
+          <p className="text-xs text-stone-400">{formatPrice(Number(item.base_price), currency).secondary}</p>
+        )}
       </div>
     </button>
   );
