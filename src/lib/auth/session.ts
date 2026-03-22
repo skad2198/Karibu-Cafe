@@ -53,7 +53,7 @@ export function isAdminOrManager(user: SessionUser): boolean {
 }
 
 export function getPrimaryRole(user: SessionUser): AppRole {
-  const priority: AppRole[] = ['admin', 'manager', 'waiter', 'kitchen', 'staff'];
+  const priority: AppRole[] = ['admin', 'manager', 'cashier', 'waiter', 'kitchen', 'staff'];
   return priority.find(r => user.roles.includes(r)) || 'staff';
 }
 
@@ -62,6 +62,7 @@ export function getDashboardPath(user: SessionUser): string {
   switch (role) {
     case 'admin': return '/dashboard/admin';
     case 'manager': return '/dashboard/manager';
+    case 'cashier': return '/dashboard/cashier';
     case 'waiter': return '/dashboard/waiter';
     case 'kitchen': return '/dashboard/kitchen';
     case 'staff': return '/dashboard/staff';

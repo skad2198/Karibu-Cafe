@@ -2,7 +2,7 @@
 // Database Types for Karibu Café
 // ============================================
 
-export type AppRole = 'admin' | 'manager' | 'waiter' | 'kitchen' | 'staff';
+export type AppRole = 'admin' | 'manager' | 'cashier' | 'waiter' | 'kitchen' | 'staff';
 
 export type TableStatus = 'available' | 'occupied' | 'billing' | 'cleaning' | 'inactive';
 

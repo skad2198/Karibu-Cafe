@@ -9,14 +9,16 @@ import { PageHeader, LoadingState, EmptyState, StatusBadge } from '@/components/
 import { useToast } from '@/components/ui/toast';
 import { Plus, Edit, Users, Shield } from 'lucide-react';
 import { capitalize, cn } from '@/lib/utils';
+import { useLang } from '@/lib/i18n/context';
 import type { Profile, UserRole, AppRole } from '@/types';
 
-const ALL_ROLES: AppRole[] = ['admin', 'manager', 'waiter', 'kitchen', 'staff'];
+const ALL_ROLES: AppRole[] = ['admin', 'manager', 'cashier', 'waiter', 'kitchen', 'staff'];
 
 export default function UsersPage() {
   const supabase = useSupabase();
   const { user } = useUser();
   const { toast } = useToast();
+  const { t } = useLang();
   const [profiles, setProfiles] = useState<(Profile & { roles: UserRole[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
@@ -54,14 +56,14 @@ export default function UsersPage() {
         }))
       );
     }
-    toast({ title: 'Roles updated', variant: 'success' });
+    toast({ title: t.users.rolesUpdated, variant: 'success' });
     setShowRoleDialog(false); load();
   };
 
   if (loading) return <LoadingState />;
   return (
     <div>
-      <PageHeader title="Users" description={`${profiles.length} users`} />
+      <PageHeader title={t.users.title} description={`${profiles.length} users`} />
       {profiles.length === 0 ? <EmptyState title="No users" icon={<Users className="h-8 w-8 text-muted-foreground" />} /> : (
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm"><thead className="bg-muted/50"><tr>
@@ -74,7 +76,7 @@ export default function UsersPage() {
                 <td className="p-3">
                   <div className="flex flex-wrap gap-1">
                     {p.roles.map(r => <Badge key={r.id} variant="secondary">{capitalize(r.role)}</Badge>)}
-                    {p.roles.length === 0 && <span className="text-muted-foreground text-xs">No roles</span>}
+                    {p.roles.length === 0 && <span className="text-muted-foreground text-xs">{t.users.noRoles}</span>}
                   </div>
                 </td>
                 <td className="p-3 text-center"><StatusBadge status={p.is_active ? 'active' : 'inactive'} /></td>
@@ -83,7 +85,7 @@ export default function UsersPage() {
           </tbody></table></div>
       )}
       <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
-        <DialogContent className="max-w-sm"><DialogHeader><DialogTitle>Manage Roles: {selectedProfile?.full_name}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-sm"><DialogHeader><DialogTitle>{t.users.manageRoles}: {selectedProfile?.full_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {ALL_ROLES.map(role => (
               <label key={role} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer">
@@ -94,7 +96,7 @@ export default function UsersPage() {
               </label>
             ))}
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setShowRoleDialog(false)}>Cancel</Button><Button onClick={saveRoles}>Save Roles</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setShowRoleDialog(false)}>{t.common.cancel}</Button><Button onClick={saveRoles}>{t.users.saveRoles}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

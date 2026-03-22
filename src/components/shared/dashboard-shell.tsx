@@ -5,41 +5,43 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useSupabase } from '@/hooks/use-supabase';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/select-dropdown';
 import {
-  Coffee, LayoutDashboard, UtensilsCrossed, ChefHat, ShoppingCart,
-  Package, Truck, Receipt, Calculator, Clock, Users, Settings,
-  FileText, LogOut, Menu, X, Sun, Moon, ClipboardList, Warehouse, Shield,
+  Coffee, LayoutDashboard, UtensilsCrossed, ChefHat,
+  Package, Truck, Receipt, Calculator, Clock, Users,
+  FileText, LogOut, Menu, X, Sun, Moon, ClipboardList, Warehouse, Shield, CreditCard, ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLang } from '@/lib/i18n/context';
 import type { SessionUser, AppRole } from '@/types';
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: React.ReactNode;
   roles: AppRole[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard/manager', icon: <LayoutDashboard className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Orders', href: '/dashboard/waiter', icon: <UtensilsCrossed className="h-5 w-5" />, roles: ['admin', 'manager', 'waiter'] },
-  { label: 'Kitchen', href: '/dashboard/kitchen', icon: <ChefHat className="h-5 w-5" />, roles: ['admin', 'manager', 'kitchen'] },
-  { label: 'Menu', href: '/dashboard/manager/menu', icon: <Coffee className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Tables', href: '/dashboard/manager/tables', icon: <ClipboardList className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Suppliers', href: '/dashboard/manager/suppliers', icon: <Truck className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Inventory', href: '/dashboard/manager/inventory', icon: <Package className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Assets', href: '/dashboard/manager/assets', icon: <Warehouse className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Expenses', href: '/dashboard/manager/expenses', icon: <Receipt className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Reconciliation', href: '/dashboard/manager/reconciliation', icon: <Calculator className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Reports', href: '/dashboard/manager/reports', icon: <FileText className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Attendance', href: '/dashboard/staff', icon: <Clock className="h-5 w-5" />, roles: ['admin', 'manager', 'staff', 'waiter', 'kitchen'] },
-  { label: 'Users', href: '/dashboard/manager/users', icon: <Users className="h-5 w-5" />, roles: ['admin', 'manager'] },
-  { label: 'Audit Log', href: '/dashboard/manager/audit', icon: <Shield className="h-5 w-5" />, roles: ['admin', 'manager'] },
+  { labelKey: 'dashboard',      href: '/dashboard/manager',             icon: <LayoutDashboard className="h-5 w-5" />, roles: ['admin', 'manager'] },
+  { labelKey: 'orders',         href: '/dashboard/waiter',              icon: <UtensilsCrossed className="h-5 w-5" />, roles: ['admin', 'manager', 'waiter'] },
+  { labelKey: 'cashier',        href: '/dashboard/cashier',             icon: <ShoppingBag className="h-5 w-5" />,     roles: ['admin', 'manager', 'cashier'] },
+  { labelKey: 'billing',        href: '/dashboard/manager/billing',     icon: <CreditCard className="h-5 w-5" />,      roles: ['admin', 'manager'] },
+  { labelKey: 'kitchen',        href: '/dashboard/kitchen',             icon: <ChefHat className="h-5 w-5" />,         roles: ['admin', 'manager', 'kitchen'] },
+  { labelKey: 'menu',           href: '/dashboard/manager/menu',        icon: <Coffee className="h-5 w-5" />,          roles: ['admin', 'manager'] },
+  { labelKey: 'tables',         href: '/dashboard/manager/tables',      icon: <ClipboardList className="h-5 w-5" />,   roles: ['admin', 'manager'] },
+  { labelKey: 'suppliers',      href: '/dashboard/manager/suppliers',   icon: <Truck className="h-5 w-5" />,           roles: ['admin', 'manager'] },
+  { labelKey: 'inventory',      href: '/dashboard/manager/inventory',   icon: <Package className="h-5 w-5" />,         roles: ['admin', 'manager'] },
+  { labelKey: 'assets',         href: '/dashboard/manager/assets',      icon: <Warehouse className="h-5 w-5" />,       roles: ['admin', 'manager'] },
+  { labelKey: 'expenses',       href: '/dashboard/manager/expenses',    icon: <Receipt className="h-5 w-5" />,         roles: ['admin', 'manager'] },
+  { labelKey: 'reconciliation', href: '/dashboard/manager/reconciliation', icon: <Calculator className="h-5 w-5" />,  roles: ['admin', 'manager'] },
+  { labelKey: 'reports',        href: '/dashboard/manager/reports',     icon: <FileText className="h-5 w-5" />,        roles: ['admin', 'manager'] },
+  { labelKey: 'attendance',     href: '/dashboard/staff',               icon: <Clock className="h-5 w-5" />,           roles: ['admin', 'manager', 'staff', 'waiter', 'kitchen', 'cashier'] },
+  { labelKey: 'users',          href: '/dashboard/manager/users',       icon: <Users className="h-5 w-5" />,           roles: ['admin', 'manager'] },
+  { labelKey: 'auditLog',       href: '/dashboard/manager/audit',       icon: <Shield className="h-5 w-5" />,          roles: ['admin', 'manager'] },
 ];
 
 export function DashboardShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
@@ -47,6 +49,7 @@ export function DashboardShell({ user, children }: { user: SessionUser; children
   const router = useRouter();
   const supabase = useSupabase();
   const { theme, setTheme } = useTheme();
+  const { lang, setLang, t } = useLang();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const visibleItems = navItems.filter(item => item.roles.some(r => user.roles.includes(r)));
@@ -82,6 +85,7 @@ export function DashboardShell({ user, children }: { user: SessionUser; children
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
             {visibleItems.map(item => {
+              const label = t.nav[item.labelKey as keyof typeof t.nav] ?? item.labelKey;
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link
@@ -96,7 +100,7 @@ export function DashboardShell({ user, children }: { user: SessionUser; children
                   )}
                 >
                   {item.icon}
-                  {item.label}
+                  {label}
                 </Link>
               );
             })}
@@ -121,12 +125,12 @@ export function DashboardShell({ user, children }: { user: SessionUser; children
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
                   {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  {theme === 'dark' ? 'Light Mode' : 'Mode Clair'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
+                  {lang === 'en' ? 'Sign Out' : 'Déconnexion'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -142,9 +146,19 @@ export function DashboardShell({ user, children }: { user: SessionUser; children
             <Menu className="h-6 w-6" />
           </button>
           <div className="flex-1" />
+
+          {/* Language toggle */}
+          <button
+            onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
+            className="px-3 py-1.5 rounded-md border text-xs font-semibold hover:bg-accent transition-colors"
+            title={lang === 'en' ? 'Switch to French' : 'Passer en anglais'}
+          >
+            {lang === 'en' ? 'FR' : 'EN'}
+          </button>
+
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="h-2 w-2 rounded-full bg-success animate-pulse-gentle" />
-            Online
+            {t.common.online}
           </div>
         </header>
 

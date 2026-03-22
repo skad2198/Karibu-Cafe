@@ -9,6 +9,7 @@ import { LoadingState, EmptyState, StatusBadge } from '@/components/shared';
 import { useToast } from '@/components/ui/toast';
 import { ChefHat, Clock, Check, Flame, Bell } from 'lucide-react';
 import { cn, elapsedTimeString, formatTime } from '@/lib/utils';
+import { useLang } from '@/lib/i18n/context';
 import type { Order, OrderItem, OrderItemModifier } from '@/types';
 
 interface KitchenOrder extends Omit<Order, 'table'> {
@@ -20,6 +21,7 @@ export default function KitchenDisplayPage() {
   const supabase = useSupabase();
   const { user, loading: userLoading } = useUser();
   const { toast } = useToast();
+  const { t } = useLang();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -84,14 +86,25 @@ export default function KitchenDisplayPage() {
 
   // Update item status
   const updateItemStatus = async (itemId: string, newStatus: 'preparing' | 'ready' | 'served') => {
-    await supabase.from('order_items').update({ status: newStatus }).eq('id', itemId);
-    toast({ title: `Item marked as ${newStatus}`, variant: 'success' });
+    const { error } = await supabase.from('order_items').update({ status: newStatus }).eq('id', itemId);
+    if (error) {
+      toast({ title: t.kitchen.failedItem, description: error.message, variant: 'error' });
+      return;
+    }
+    toast({ title: `${t.kitchen.markedAs} ${newStatus}`, variant: 'success' });
     loadOrders();
   };
 
   // Accept / complete order
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    await supabase.from('orders').update({ status: newStatus, updated_by: user?.id }).eq('id', orderId);
+    const { error: orderErr } = await supabase.from('orders')
+      .update({ status: newStatus, updated_by: user?.id })
+      .eq('id', orderId);
+    if (orderErr) {
+      toast({ title: t.kitchen.failedOrder, description: orderErr.message, variant: 'error' });
+      return;
+    }
+
     await supabase.from('order_status_history').insert({
       order_id: orderId, to_status: newStatus, changed_by: user?.id,
     });
@@ -127,19 +140,19 @@ export default function KitchenDisplayPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ChefHat className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">Kitchen Display</h1>
-          <Badge variant="secondary">{orders.length} active</Badge>
+          <h1 className="text-2xl font-bold">{t.kitchen.title}</h1>
+          <Badge variant="secondary">{orders.length} {t.kitchen.active}</Badge>
         </div>
         <Button variant="outline" size="sm" onClick={loadOrders}>
-          Refresh
+          {t.common.refresh}
         </Button>
       </div>
 
       {orders.length === 0 ? (
         <EmptyState
           icon={<ChefHat className="h-8 w-8 text-muted-foreground" />}
-          title="No active orders"
-          description="New orders will appear here in real-time"
+          title={t.kitchen.noOrders}
+          description={t.kitchen.noOrdersDesc}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -239,7 +252,7 @@ export default function KitchenDisplayPage() {
                     onClick={() => updateOrderStatus(order.id, 'preparing')}
                   >
                     <Flame className="h-4 w-4 mr-2" />
-                    Start Preparing
+                    {t.kitchen.startPreparing}
                   </Button>
                 )}
                 {order.status === 'preparing' && (
@@ -250,7 +263,7 @@ export default function KitchenDisplayPage() {
                     onClick={() => updateOrderStatus(order.id, 'ready')}
                   >
                     <Bell className="h-4 w-4 mr-2" />
-                    Order Ready
+                    {t.kitchen.orderReady}
                   </Button>
                 )}
                 {order.status === 'ready' && (
@@ -261,7 +274,7 @@ export default function KitchenDisplayPage() {
                     onClick={() => updateOrderStatus(order.id, 'served')}
                   >
                     <Check className="h-4 w-4 mr-2" />
-                    Mark Served
+                    {t.kitchen.markServed}
                   </Button>
                 )}
               </div>
