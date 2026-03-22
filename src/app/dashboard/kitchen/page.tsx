@@ -11,7 +11,7 @@ import { ChefHat, Clock, Check, Flame, Bell } from 'lucide-react';
 import { cn, elapsedTimeString, formatTime } from '@/lib/utils';
 import type { Order, OrderItem, OrderItemModifier } from '@/types';
 
-interface KitchenOrder extends Order {
+interface KitchenOrder extends Omit<Order, 'table'> {
   items: (OrderItem & { modifiers?: OrderItemModifier[] })[];
   table?: { table_number: string };
 }
