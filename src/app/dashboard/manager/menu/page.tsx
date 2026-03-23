@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader, EmptyState, LoadingState, ConfirmActionDialog } from '@/components/shared';
 import { useToast } from '@/components/ui/toast';
 import { Plus, Edit, Trash2, Coffee, ToggleLeft, ToggleRight } from 'lucide-react';
-import { formatCurrency, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import type { MenuItem, MenuCategory } from '@/types';
 
 export default function MenuManagementPage() {
@@ -168,7 +168,7 @@ export default function MenuManagementPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold">{item.name}</h3>
                     {item.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>}
-                    <p className="text-lg font-bold text-primary mt-2">{formatCurrency(Number(item.base_price))}</p>
+                    <p className="text-lg font-bold text-primary mt-2">${Number(item.base_price).toFixed(2)} <span className="text-xs font-normal text-muted-foreground">USD HT</span></p>
                     <div className="flex items-center gap-2 mt-2">
                       {!item.is_available && <Badge variant="warning">Unavailable</Badge>}
                       {item.is_taxable && <Badge variant="secondary">Taxable</Badge>}

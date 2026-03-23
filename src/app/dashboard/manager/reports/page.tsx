@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/dialog
 import { PageHeader, LoadingState, StatCard, EmptyState } from '@/components/shared';
 import { useToast } from '@/components/ui/toast';
 import { useLang } from '@/lib/i18n/context';
-import { formatCurrency, formatDate, formatDateTime, cn } from '@/lib/utils';
+import { formatCDF, formatDate, formatDateTime, cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { TrendingUp, ShoppingCart, Receipt, Clock, Download, Users } from 'lucide-react';
 import type { AttendanceLog } from '@/types';
@@ -75,7 +75,7 @@ export default function ReportsPage() {
       dailyMap.set(day, (dailyMap.get(day) || 0) + Number(p.amount));
     });
     setSalesData(Array.from(dailyMap.entries()).sort().map(([date, amount]) => ({
-      date: new Date(date).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' }), amount,
+      date: new Date(date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }), amount,
     })));
 
     const itemMap = new Map<string, { name: string; qty: number; revenue: number }>();
@@ -96,7 +96,7 @@ export default function ReportsPage() {
 
     const { data, error } = await supabase
       .from('attendance_logs')
-      .select('*, profile:profiles(full_name, email)')
+      .select('*, profile:profiles!attendance_logs_user_id_fkey(full_name, email)')
       .eq('branch_id', user.branch_id)
       .gte('check_in', dateFrom + 'T00:00:00')
       .lte('check_in', dateTo + 'T23:59:59')
@@ -148,7 +148,7 @@ export default function ReportsPage() {
 
     const { data } = await supabase
       .from('attendance_logs')
-      .select('*, profile:profiles(full_name, email)')
+      .select('*, profile:profiles!attendance_logs_user_id_fkey(full_name, email)')
       .eq('branch_id', user.branch_id)
       .gte('check_in', from + 'T00:00:00')
       .lte('check_in', to + 'T23:59:59')
@@ -200,10 +200,10 @@ export default function ReportsPage() {
           {loading ? <LoadingState /> : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard title={t.reports.totalSales} value={formatCurrency(totals.sales)} icon={<TrendingUp className="h-5 w-5" />} />
+                <StatCard title={t.reports.totalSales} value={formatCDF(totals.sales)} icon={<TrendingUp className="h-5 w-5" />} />
                 <StatCard title={t.reports.ordersCount} value={totals.orders} icon={<ShoppingCart className="h-5 w-5" />} />
-                <StatCard title={t.reports.avgOrder} value={formatCurrency(totals.avgOrder)} />
-                <StatCard title={t.common.expenses} value={formatCurrency(totals.expenses)} icon={<Receipt className="h-5 w-5" />} />
+                <StatCard title={t.reports.avgOrder} value={formatCDF(totals.avgOrder)} />
+                <StatCard title={t.common.expenses} value={formatCDF(totals.expenses)} icon={<Receipt className="h-5 w-5" />} />
               </div>
 
               <div className="grid lg:grid-cols-2 gap-6 mb-6">
@@ -216,7 +216,7 @@ export default function ReportsPage() {
                           <LineChart data={salesData}>
                             <XAxis dataKey="date" fontSize={11} />
                             <YAxis fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                            <Tooltip formatter={(v: number) => formatCDF(v)} />
                             <Line type="monotone" dataKey="amount" stroke="hsl(24, 70%, 35%)" strokeWidth={2} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
@@ -234,7 +234,7 @@ export default function ReportsPage() {
                           <BarChart data={topItems} layout="vertical">
                             <XAxis type="number" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                             <YAxis type="category" dataKey="name" fontSize={11} width={120} />
-                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                            <Tooltip formatter={(v: number) => formatCDF(v)} />
                             <Bar dataKey="revenue" fill="hsl(24, 70%, 35%)" radius={[0, 4, 4, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
@@ -250,16 +250,16 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-3 gap-8 text-center">
                     <div>
                       <p className="text-sm text-muted-foreground">{t.reports.revenue}</p>
-                      <p className="text-xl font-bold text-success">{formatCurrency(totals.sales)}</p>
+                      <p className="text-xl font-bold text-success">{formatCDF(totals.sales)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t.common.expenses}</p>
-                      <p className="text-xl font-bold text-destructive">{formatCurrency(totals.expenses)}</p>
+                      <p className="text-xl font-bold text-destructive">{formatCDF(totals.expenses)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t.reports.grossProfit}</p>
                       <p className={cn('text-xl font-bold', totals.sales - totals.expenses >= 0 ? 'text-success' : 'text-destructive')}>
-                        {formatCurrency(totals.sales - totals.expenses)}
+                        {formatCDF(totals.sales - totals.expenses)}
                       </p>
                     </div>
                   </div>

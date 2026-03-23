@@ -10,7 +10,7 @@ import { StatusBadge, EmptyState, LoadingState, PageHeader } from '@/components/
 import { useToast } from '@/components/ui/toast';
 import { useLang } from '@/lib/i18n/context';
 import { Plus, Minus, Send, X, ShoppingCart, Coffee, CreditCard, ShoppingBag, Bell, Flame, Check, Sparkles } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCDF } from '@/lib/utils';
 import type { RestaurantTable, MenuItem, MenuCategory, MenuItemModifier, Order, OrderItem } from '@/types';
 
 interface CartItem {
@@ -28,7 +28,7 @@ export default function WaiterPOSPage() {
   const supabase = useSupabase();
   const { user, loading: userLoading } = useUser();
   const { toast } = useToast();
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -36,6 +36,16 @@ export default function WaiterPOSPage() {
   const [modifiers, setModifiers] = useState<MenuItemModifier[]>([]);
   const [loading, setLoading] = useState(true);
   const [taxRate, setTaxRate] = useState(0.16);
+  const [exchangeRate, setExchangeRate] = useState(2300);
+
+  // Load exchange rate from localStorage
+  useEffect(() => {
+    const rate = parseFloat(localStorage.getItem('kc_exchange_rate') || '2300');
+    if (!isNaN(rate) && rate > 0) setExchangeRate(rate);
+  }, []);
+
+  const toTTC = (amtUSD: number) => amtUSD * exchangeRate * (1 + taxRate);
+  const itemName = (item: any) => lang === 'fr' && item.name_fr ? item.name_fr : item.name;
 
   // View state
   const [view, setView] = useState<'floor' | 'menu'>('floor');
@@ -411,8 +421,8 @@ export default function WaiterPOSPage() {
                   isBilled ? 'opacity-40 cursor-not-allowed' : 'hover:border-primary/50 hover:shadow-sm'
                 )}
               >
-                <p className="font-medium text-sm line-clamp-2">{item.name}</p>
-                <p className="text-primary font-bold mt-1">{formatCurrency(Number(item.base_price))}</p>
+                <p className="font-medium text-sm line-clamp-2">{itemName(item)}</p>
+                <p className="text-primary font-bold mt-1">{formatCDF(toTTC(Number(item.base_price)))}</p>
               </button>
             ))}
           </div>
@@ -473,7 +483,7 @@ export default function WaiterPOSPage() {
                   </span>
                 </div>
               </div>
-              <p className="font-medium ml-2 shrink-0">{formatCurrency(Number(item.total_price))}</p>
+              <p className="font-medium ml-2 shrink-0">{formatCDF(toTTC(Number(item.total_price)))}</p>
             </div>
           ))}
 
@@ -503,7 +513,7 @@ export default function WaiterPOSPage() {
                   </button>
                 </div>
               </div>
-              <p className="font-medium text-sm">{formatCurrency(item.unitPrice * item.quantity)}</p>
+              <p className="font-medium text-sm">{formatCDF(toTTC(item.unitPrice * item.quantity))}</p>
             </div>
           ))}
 
@@ -521,13 +531,13 @@ export default function WaiterPOSPage() {
           {(cart.length > 0 || existingItems.length > 0) && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">{cart.length > 0 ? t.waiter.newItemsTotal : t.common.total}</span>
-              <span className="font-bold">{formatCurrency(cart.length > 0 ? cartTotal : existingItems.reduce((s, i) => s + Number(i.total_price), 0))}</span>
+              <span className="font-bold">{formatCDF(toTTC(cart.length > 0 ? cartTotal : existingItems.reduce((s, i) => s + Number(i.total_price), 0)))}</span>
             </div>
           )}
           {activeOrder && cart.length > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">{t.waiter.existingTotal}</span>
-              <span className="font-medium">{formatCurrency(Number(activeOrder.total))}</span>
+              <span className="font-medium">{formatCDF(toTTC(Number(activeOrder.total)))}</span>
             </div>
           )}
 
@@ -584,7 +594,7 @@ export default function WaiterPOSPage() {
                       >
                         <p className="font-medium">{mod.name}</p>
                         {Number(mod.price_adjustment) > 0 && (
-                          <p className="text-xs text-muted-foreground">+{formatCurrency(Number(mod.price_adjustment))}</p>
+                          <p className="text-xs text-muted-foreground">+{formatCDF(toTTC(Number(mod.price_adjustment)))}</p>
                         )}
                       </button>
                     );
